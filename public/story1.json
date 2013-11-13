@@ -1,0 +1,6 @@
+{
+	"bubbles": [
+		{ "id": "b1", "top": "200", "left": "200", "text": "Events/Plots" }, 
+		{ "id": "b2", "top": "400", "left": "200", "text": "The Matron and the safe world" }
+	]
+}
