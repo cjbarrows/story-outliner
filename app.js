@@ -1,3 +1,5 @@
+// NOTE: used https://github.com/ddollar/heroku-push to get around port 22 access requirement for Heroku
+
 var express = require('express');
 var app = express();
 
@@ -9,8 +11,12 @@ var quotes = [
 ];
 
 var story = [
-	{ "id": "b1", "top": "200", "left": "200", "text": "Events/Plots" }, 
-	{ "id": "b2", "top": "400", "left": "200", "text": "The Matron and the safe world" }
+	{ "id": "b1", "top": "200", "left": "200", "text": "Events/Plots", "width": 150,
+		"contents": "This is the content of the events and plots bubble."
+	}, 
+	{ "id": "b2", "top": "400", "left": "200", "text": "The Matron<br/>and the safe<br/>world",
+		"contents": "This is the next contents bubble.\nOnce upon a time there was an old lady.\nShe lived in a brown shoe and smelled like socks.\nAnd this is another line in the second bubble."
+	}
 ];
 
 app.use(express.bodyParser());
@@ -25,22 +31,50 @@ app.get("/story", function (req, res) {
 });
 
 app.post('/story/:id', function(req, res) {
-	if (!req.body.hasOwnProperty('left') || !req.body.hasOwnProperty('top')) {
-		res.statusCode = 400;
-		return res.send('Error 400: Post syntax incorrect.');
-	}
+	/*
 	if (story.length <= req.params.id || req.params.id < 0) {
 		res.statusCode = 404;
 		return res.send('Error 404: No quote found');
 	}
-	
+	*/
+
 	var s = story.filter(function (item) { return item.id == req.params.id; });
 	if (s.length > 0) {
-		s[0].top = req.body.top;
-		s[0].left = req.body.left;
+		if (req.body.hasOwnProperty('left')) {
+			s[0].top = req.body.top;
+			s[0].left = req.body.left;
+		}
+		if (req.body.hasOwnProperty('text')) {
+			s[0].text = req.body.text;
+		}
+		if (req.body.hasOwnProperty('width')) {
+			s[0].width = req.body.width;
+			s[0].height = req.body.height;
+		}
+		if (req.body.hasOwnProperty('contents')) {
+			s[0].contents = req.body.contents;
+		}
+	} else {
+		// adding new
+		var s = {};
+		// copy top-level properties
+		for (var keys = Object.keys(req.body), l = keys.length; l; --l) {
+		   s[keys[l-1]] = req.body[keys[l-1]];
+		}
+		story.push(s);
 	}
 	
 	res.json(s);
+});
+
+app.post('/delete/:id', function(req, res) {
+	var s = story.filter(function (item) { return item.id == req.params.id; });
+	if (s.length > 0) {
+		var index = story.indexOf(s[0]);
+		if (index != -1) {
+			story.splice(index, 1);
+		}
+	}
 });
 
 app.get('/quote/:id', function(req, res) {
