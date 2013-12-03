@@ -1,11 +1,11 @@
 var scale = 1.0;
 
-var MOUSEWHEEL_SCALE = .01;
+var MOUSEWHEEL_SCALE = .05;
 
 $(document).ready(function () {
-	// this didn't work with jquery.contextmenu.js:
 //	FastClick.attach(document.body);
-	
+
+/*	
 	loadStory();
 	
 	initializeUI();
@@ -19,6 +19,7 @@ $(document).ready(function () {
 				e.preventDefault();
 			}
 		});
+*/
 });
 
 function loadStory () {
@@ -35,6 +36,24 @@ function initializeUI () {
 	$("button").button();
 	
 	$("#addButton").click(onClickAddBubble);
+	$("#testButton").click(onClickTest);
+$.contextMenu({
+        selector: '#testButton', 
+        callback: function(key, options) {
+            var m = "clicked: " + key;
+            window.console && console.log(m) || alert(m); 
+        },
+        items: {
+            "edit": {name: "Edit"},
+            "delete": {name: "Delete", icon: "delete"},
+            "sep1": "---------",
+            "quit": {name: "Quit"}
+        }
+    });	
+}
+
+function onClickTest (event) {
+	$("#testButton").contextmenu();
 }
 
 function finalizeUI () {
@@ -74,7 +93,7 @@ function createBubble (item) {
 	el.resizable( { stop: onStopResizingBubble } );
 	
 	el.click(onClickBubble);
-//	el.dblclick(onDoubleClickBubble);
+	el.dblclick(onDoubleClickBubble);
 
 	el.find(".editable").editable( { toggleFontSize : false, event: "", lineBreaks: true, callback: onEditBubble } );
 	el.find(".editable").on("edit", onEditBubble);
@@ -89,7 +108,7 @@ function createBubble (item) {
 	w.attr("id", "w_" + item.id);
 	w.text(item.contents);
 	var caption = item.text.replace(/<br\/\>/g, " ");
-	var x = $("<li>").append(w).append("<div class='handle'><p class='handle-text'>" + caption);
+	var x = $("<li>").append(w).append("<div class='handle'><p>" + caption);
 	x.appendTo("#words");
 	
 	// this (jquery-mobile) will give it a nice rounded, shaded look but it's kinda overkill
@@ -97,10 +116,6 @@ function createBubble (item) {
 
 	w.autosize();
 	w.bind("input propertychange", onChangeContents);
-	
-	// adjust handle height for margins between <li>
-	var h = x.find(".handle");
-	h.width(x.height() - 4);
 	
 	return el;
 }
@@ -114,29 +129,33 @@ function onChangeContents (event) {
 }
 
 function onTapHoldBubble (event) {
+//	$(document).contextmenu("open", $(event.target));
 	$(event.target).contextMenu();
 }
 
 function addMenuTo (id) {
-	$.contextMenu({
-			selector: id,
-			callback: function(key, options) {
-				if (key == "delete") {
-					// TODO: confirm?
-					deleteBubble(options.selector.substr(1));
-				} else if (key == "edit") {
-					console.log($(options.selector));
-					editBubbleCaption($(options.selector));
-				} else if (key == "write") {
-					gotoBubbleWriter($(options.selector));
-				}
-			},
-			items: {
-				"edit": { name: "Edit" },
-				"write": { name: "Write" },
-				"delete": {name: "Delete", icon: "delete"},
-			}
-		});
+/*
+	$(document).contextmenu({
+		delegate: elem,
+		menu: [
+			{ title: "Delete", cmd: "del", uiIcon: "ui-icon-trash large" }
+			],
+		select: onBubbleMenuSelect
+	});
+*/
+$.contextMenu({
+		selector: id,
+		trigger: "none",
+		callback: function(key, options) {
+			if (key == "delete")
+			deleteBubble(options.selector.substr(1));
+		},
+		items: {
+			"edit": { name: "Edit" },
+			"write": { name: "Write" },
+			"delete": {name: "Delete", icon: "delete"},
+		}
+	});
 }
 
 function getBubbleFromTarget (elem) {
@@ -163,19 +182,16 @@ function deleteBubble (id) {
 
 function onDiagramMouseWheel (event, delta, deltaX, deltaY) {
 	var px = event.clientX, py = event.clientY;
-
+	
+	console.log(px);
+	
 	// TODO: this is nice to zoom in on a location but it jumps around when zooming on
 	// different spots
 	$("#diagram").css("-webkit-transform-origin", px + "px " + py + "px");
 	
-	scale += deltaY * MOUSEWHEEL_SCALE;
-	
-	if (scale < .1) scale = .1;
-	else if (scale > 1) scale = 1;
+	scale += delta * MOUSEWHEEL_SCALE;
 	
 	$("#diagram").css("-webkit-transform", "scale(" + scale + ")");
-	
-	event.preventDefault();
 }
 
 function onEditBubble (data) {
@@ -191,54 +207,22 @@ function onEditBubble (data) {
 function onClickBubble (event) {
 	var bubble = getBubbleFromTarget($(event.target));
 	
-	var alreadySelected = $(bubble).hasClass("selected");
-	
 	$(".selected").removeClass("selected");
 	$(bubble).addClass("selected");
 	
-	/*
 	var elem = $("#w_" + $(bubble).attr("id"));
-	console.log(elem.hasClass("highlighted"));
-	if (!elem.hasClass("highlighted")) {
-		$(".highlighted").removeClass("highlighted");
-		elem.addClass("highlighted");
-		elem.effect("highlight", {}, 1000);
-	}
-	*/
-	
-	var elem = $("#w_" + $(bubble).attr("id"));
-	
-	if (alreadySelected) {
-		gotoBubbleWriter(bubble);
-	} else {
-		elem.effect("highlight", {}, 1000);
-	}
+	elem.effect("highlight", {}, 1000);
+	elem.focus();
 	
 	// scroll to corresponding text	
 	$("#words_container").animate( { scrollTop: elem.offset().top } );
 }
 
 function onDoubleClickBubble (event) {
-	var bubble = getBubbleFromTarget($(event.target));
-	
-	gotoBubbleWriter(bubble);
-}
-
-function gotoBubbleWriter (bubble) {
-	var elem = $("#w_" + $(bubble).attr("id"));
-	elem.effect("highlight", {}, 1000);
-	elem.focus();
-	var len = elem.val().length;
-	elem[0].setSelectionRange(len, len);
-}
-
-function editBubbleCaption (bubble) {
-	var b = bubble.find(".editable");
-	
-	b.parent().css("display", "block");
-	var w = b.parent().width();
-	b.width(w);
-	b.editable("open");
+	$(event.target).parent().css("display", "block");
+	var w = $(event.target).parent().width();
+	$(event.target).width(w);
+	$(event.target).editable("open");
 }
 
 function onStartDraggingBubble (event, ui) {
