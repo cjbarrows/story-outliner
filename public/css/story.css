@@ -31,17 +31,6 @@ div.bubble.selected {
 	border-color: black;
 }
 
-#diagram {
-	-webkit-transform: scale(1.0);
-	width: 1000px;
-	height: 1000px;
-	float: left;
-	background-color: blue;
-	-webkit-backface-visibility: hidden;
-	-webkit-perspective: 1000;
-	-webkit-transform: translate3d(0, 0, 0);
-}
-
 #controls {
 	position: fixed;
 	z-index: 10;
@@ -71,12 +60,26 @@ div.bubble.selected {
 }
 */
 
+#diagram_outer {
+	width: 100%;
+	height: 100%;
+}
+
 #diagram_container {
-	overflow: scroll;
+	overflow: hidden;
 	height: 100%;
 	width: 50%;
 	float: left;
 	background-color: #ddd;
+	-webkit-backface-visibility: hidden;
+	-webkit-perspective: 1000;
+	-webkit-transform: translate3d(0, 0, 0);
+}
+
+#diagram {
+	-webkit-transform: scale(1.0);
+	width: 100%;
+	height: 100%;
 	-webkit-backface-visibility: hidden;
 	-webkit-perspective: 1000;
 	-webkit-transform: translate3d(0, 0, 0);
@@ -126,12 +129,12 @@ div.bubble.selected {
 #words .handle p.handle-text {
 	box-sizing: content-box;
 	top: 3px;
-	left: 0px;
+	right: 10px;
 	position: absolute;
 	display: block;
 	font-size: 75%;
 	overflow: hidden;
-	text-align: center;
+	text-align: right;
 	text-overflow: ellipsis;
 	text-shadow: none;
 	white-space: nowrap;

@@ -11,6 +11,7 @@ $(document).ready(function () {
 	initializeUI();
 	
 	$("#diagram").mousewheel(onDiagramMouseWheel);
+	$("#diagram_outer").on("gesturechange", onPinch);
 
 	// try to prevent page scrolling (on the iPad) except for the text areas
 	$("body").on("touchmove", function (e) {
@@ -30,7 +31,7 @@ function initializeUI () {
 	
 //	$("#splitter").splitter();
 
-	$("#diagram").draggable();
+	$("#diagram_outer").draggable( { stop: onStopDraggingDiagram } );
 
 	$("button").button();
 	
@@ -178,6 +179,23 @@ function onDiagramMouseWheel (event, delta, deltaX, deltaY) {
 	event.preventDefault();
 }
 
+// TODO: throttle this?
+function onPinch (event) {
+	var s = event.originalEvent.scale;
+	
+	if (s > 1) {
+		scale += s * .02;//MOUSEWHEEL_SCALE;
+		if (scale < .1) scale = .1;
+		else if (scale > 1) scale = 1;
+		$("#diagram").css("-webkit-transform", "scale(" + scale + ")");	
+	} else if (s < 1) {
+		scale -= s * .02;//MOUSEWHEEL_SCALE;
+		if (scale < .1) scale = .1;
+		else if (scale > 1) scale = 1;
+		$("#diagram").css("-webkit-transform", "scale(" + scale + ")");	
+	}
+}
+
 function onEditBubble (data) {
 	if (data.content) {
 		// reset bubble to inline
@@ -320,4 +338,13 @@ function updateBubbleText (elem) {
 	var data = { text: elem.find(".editable")[0].innerHTML };
 	
 	$.post("/story/" + id, data, onUpdateCallback);
+}
+
+function onStopDraggingDiagram () {
+	// resize to fit viewable area
+	var p = $("#diagram_container");
+	var o = $("#diagram_outer");
+	var d = $("#diagram");
+	d.offset( { left: d.offset().left + o.offset().left, top: d.offset().top + o.offset().top } );
+	o.offset( { left: 0, top: 0 } );
 }
