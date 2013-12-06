@@ -2,6 +2,11 @@ var scale = 1.0;
 
 var MOUSEWHEEL_SCALE = .01;
 
+var dataMode = "dropbox";//"node";
+
+var APP_KEY = "qmqi08m3143grgb";
+var client, datastoreManager, bubbleTable;
+
 $(document).ready(function () {
 	// this didn't work with jquery.contextmenu.js:
 //	FastClick.attach(document.body);
@@ -19,11 +24,59 @@ $(document).ready(function () {
 			} else {
 				e.preventDefault();
 			}
-		});
+		});		
 });
 
+function initializeStorage () {
+	client = new Dropbox.Client( {key: APP_KEY} );
+
+	// Try to finish OAuth authorization.
+	client.authenticate({interactive: false}, function (error) {
+		if (error) {
+			alert('Authentication error: ' + error);
+		}
+	});
+
+	if (client.isAuthenticated()) {
+		// Client is authenticated. Display UI.
+		datastoreManager = client.getDatastoreManager();
+		datastoreManager.openDefaultDatastore(function (error, datastore) {
+			if (error) {
+				alert('Error opening default datastore: ' + error);
+			}
+
+			bubbleTable = datastore.getTable('bubbles');
+			
+			var bubbles = bubbleTable.query();
+			var ar = [];
+			for (each in bubbles) {
+				ar.push(bubbles[each].getFields());
+			}
+			onReceiveStory(ar);
+		});
+	}
+}
+
+function getDropboxRecord (id) {
+	var recs = bubbleTable.query( { id: id } );
+	if (recs.length > 0) {
+		return recs[0];
+	} else {
+		// new record
+		return bubbleTable.insert( { id: id } );
+	}
+}
+
+function onClickLogin (event) {
+	client.authenticate();
+}
+
 function loadStory () {
-	$.getJSON("/story", onReceiveStory);
+	if (dataMode == "node") {
+		$.getJSON("/story", onReceiveStory);
+	} else if (dataMode == "dropbox") {
+		initializeStorage();
+	}
 }
 
 function initializeUI () {
@@ -36,6 +89,7 @@ function initializeUI () {
 	$("button").button();
 	
 	$("#addButton").click(onClickAddBubble);
+	$("#loginButton").click(onClickLogin);
 }
 
 function finalizeUI () {
@@ -126,7 +180,6 @@ function addMenuTo (id) {
 					// TODO: confirm?
 					deleteBubble(options.selector.substr(1));
 				} else if (key == "edit") {
-					console.log($(options.selector));
 					editBubbleCaption($(options.selector));
 				} else if (key == "write") {
 					gotoBubbleWriter($(options.selector));
@@ -159,7 +212,13 @@ function deleteBubble (id) {
 	
 	$("#"+ id).remove();
 	$("#w_" + id).remove();
-	$.post("/delete/" + id, {}, onUpdateCallback);
+	
+	if (dataMode == "node") {
+		$.post("/delete/" + id, {}, onUpdateCallback);
+	} else {
+		var rec = getDropboxRecord(id);
+		rec.deleteRecord();
+	}
 }
 
 function onDiagramMouseWheel (event, delta, deltaX, deltaY) {
@@ -275,18 +334,27 @@ function onDraggingBubble (event, ui) {
 	ui.position.top = ui.originalPosition.top + (dy / zoomScaleY);
 }
 
+function updateBubbleData (id, data) {
+	if (dataMode == "node") {
+		$.post("/story/" + id, data, onUpdateCallback);
+	} else if (dataMode == "dropbox") {
+		var rec = getDropboxRecord(id);
+		rec.update(data);
+	}
+}
+
 function onStopDraggingBubble (event, ui) {
 	var id = event.target.id;
 	var data = { left: ui.position.left, top: ui.position.top };
 	
-	$.post("/story/" + id, data, onUpdateCallback);
+	updateBubbleData(id, data);	
 }
 
 function onStopResizingBubble (event, ui) {
 	var id = event.target.id;
 	var data = { width: ui.size.width, height: ui.size.height };
 	
-	$.post("/story/" + id, data, onUpdateCallback);
+	updateBubbleData(id, data);
 }
 
 function sortByID (a, b) {
@@ -311,14 +379,12 @@ function onClickAddBubble (event) {
 }
 
 function onUpdateCallback (data) {
-//	console.log("updated");
-//	console.log(data);
 }
 
 function updateBubbleContents (id, contents) {
 	var data = { id: id, contents: contents };
 	
-	$.post("/story/" + id, data, onUpdateCallback);
+	updateBubbleData(id, data);
 }
 
 function updateBubble (elem) {
@@ -329,7 +395,7 @@ function updateBubble (elem) {
 					width: elem.width(), height: elem.height(),
 					contents: $("#w_" + id).val() };
 	
-	$.post("/story/" + id, data, onUpdateCallback);
+	updateBubbleData(id, data);
 }
 
 function updateBubbleText (elem) {
@@ -337,7 +403,7 @@ function updateBubbleText (elem) {
 	
 	var data = { text: elem.find(".editable")[0].innerHTML };
 	
-	$.post("/story/" + id, data, onUpdateCallback);
+	updateBubbleData(id, data);
 }
 
 function onStopDraggingDiagram () {
