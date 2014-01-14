@@ -337,6 +337,8 @@ function onPinch (event) {
 	
 	zoomOnPoint(event.clientX, event.clientY, oldScale);
 	
+	windowlog(scale);
+	
 //	$("#diagram").css("-webkit-transform", "scale(" + scale + ")");
 	
 //	$("#diagram").css("-webkit-transform-origin", lastCenter.x + "px " + lastCenter.y + "px");

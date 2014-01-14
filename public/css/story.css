@@ -161,7 +161,7 @@ div.bubble.selected {
 }
 
 #logger {
-	display: none;
+	display: block;
 	font-size: 50%;
 	height: 40em;
 }
