@@ -66,7 +66,7 @@ function getEventCenter (event) {
 
 function onTouch (event) {	
 	lastCenter = getEventCenter(event);
-	windowlog(lastCenter.x + " " + lastCenter.y);
+//	windowlog(lastCenter.x + " " + lastCenter.y);
 }
 
 function initializeStorage () {
