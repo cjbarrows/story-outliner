@@ -13,7 +13,7 @@ var MOUSEWHEEL_SCALE = .005;
 var MIN_SCALE = .1, MAX_SCALE = 4;
 
 // "dropbox" or "node"
-var dataMode = "node";
+var dataMode = "dropbox";
 
 var APP_KEY = "qmqi08m3143grgb";
 var client, datastoreManager, bubbleTable;
