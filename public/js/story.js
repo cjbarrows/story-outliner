@@ -1,11 +1,24 @@
 var scale = 1.0;
+var startScale;
+var lastCenter;
 
-var MOUSEWHEEL_SCALE = .01;
+var xNew = 0;
+var yNew = 0;
+var xLast = 0;  // last x location on the screen
+var yLast = 0;  // last y location on the screen
+var xImage = 0; // last x location on the image
+var yImage = 0; // last y location on the image
+    
+var MOUSEWHEEL_SCALE = .005;
+var MIN_SCALE = .1, MAX_SCALE = 4;
 
-var dataMode = "dropbox";//"node";
+// "dropbox" or "node"
+var dataMode = "node";
 
 var APP_KEY = "qmqi08m3143grgb";
 var client, datastoreManager, bubbleTable;
+
+//var scrollerObj;
 
 $(document).ready(function () {
 	// this didn't work with jquery.contextmenu.js:
@@ -16,7 +29,10 @@ $(document).ready(function () {
 	initializeUI();
 	
 	$("#diagram").mousewheel(onDiagramMouseWheel);
+	$("#diagram_outer").on("gesturestart", onPinchStart);
 	$("#diagram_outer").on("gesturechange", onPinch);
+	$("#diagram_outer").on("gestureend", onPinchEnd);
+	$("#diagram_outer").on("touchstart", onTouch);
 
 	// try to prevent page scrolling (on the iPad) except for the text areas
 	$("body").on("touchmove", function (e) {
@@ -26,6 +42,32 @@ $(document).ready(function () {
 			}
 		});		
 });
+
+function windowlog (s) {
+	$("#logger").val($("#logger").val() + s + "\n");
+}
+
+function getEventCenter (event) {
+	var pt = {};
+	
+	if (event.originalEvent.touches.length == 2) {
+		var x1 = event.originalEvent.touches[0].pageX;
+		var y1 = event.originalEvent.touches[0].pageY;
+		var x2 = event.originalEvent.touches[1].pageX;
+		var y2 = event.originalEvent.touches[1].pageY;
+		pt.x = (x1 + x2) * .5;
+		pt.y = (y1 + y2) * .5;
+	} else {
+		pt.x = event.originalEvent.touches[0].pageX;
+		pt.y = event.originalEvent.touches[0].pageY;
+	}
+	return pt;
+}
+
+function onTouch (event) {	
+	lastCenter = getEventCenter(event);
+	windowlog(lastCenter.x + " " + lastCenter.y);
+}
 
 function initializeStorage () {
 	client = new Dropbox.Client( {key: APP_KEY} );
@@ -84,12 +126,36 @@ function initializeUI () {
 	
 //	$("#splitter").splitter();
 
-	$("#diagram_outer").draggable( { stop: onStopDraggingDiagram } );
+	$("#diagram").draggable( { start: onStartDraggingDiagram, stop: onStopDraggingDiagram } );
 
 	$("button").button();
 	
 	$("#addButton").click(onClickAddBubble);
 	$("#loginButton").click(onClickLogin);
+	
+//	Draggable.create("#words_container", { type:"scrollTop", edgeResistance:0.5, throwProps:true });
+
+/*
+	scrollerObj = new Scroller(function(left, top, zoom) {
+		// apply coordinates/zooming
+//		console.log(left + " " + top);
+		$("#diagram").css("-webkit-transform", "scale(" + zoom + ") translateX(" + left + "px) translateY(" + top + "px)");
+	}, {
+			zooming: true,
+			scrollingX: false,
+			scrollingY: false,
+			paging: false,
+			bouncing: false,
+			locking: false,
+			minZoom: .5,
+			maxZoom: 1.1,
+		}
+	);
+	var diagram_outer = $("#diagram_outer");
+	scrollerObj.setDimensions(diagram_outer.width(), diagram_outer.height(), 1000, 1000);//3000, 3000);
+	var client_left = diagram_outer.offset().left, client_top = diagram_outer.offset().top;
+	scrollerObj.setPosition(client_left, client_top);
+*/
 }
 
 function finalizeUI () {
@@ -134,7 +200,8 @@ function createBubble (item) {
 	el.find(".editable").editable( { toggleFontSize : false, event: "", lineBreaks: true, callback: onEditBubble } );
 	el.find(".editable").on("edit", onEditBubble);
 
-	el.bind("taphold", onTapHoldBubble);
+	if (jQuery.browser.mobile)
+		el.bind("taphold", onTapHoldBubble);
 	
 	addMenuTo("#" + item.id);
 	
@@ -222,37 +289,50 @@ function deleteBubble (id) {
 }
 
 function onDiagramMouseWheel (event, delta, deltaX, deltaY) {
-	var px = event.clientX, py = event.clientY;
-
-	// TODO: this is nice to zoom in on a location but it jumps around when zooming on
-	// different spots
-	$("#diagram").css("-webkit-transform-origin", px + "px " + py + "px");
-	
-	scale += deltaY * MOUSEWHEEL_SCALE;
-	
-	if (scale < .1) scale = .1;
-	else if (scale > 1) scale = 1;
-	
-	$("#diagram").css("-webkit-transform", "scale(" + scale + ")");
-	
 	event.preventDefault();
+	
+	// find current location on screen 
+	var xScreen = event.pageX;
+	var yScreen = event.pageY;
+
+	// find current location on the image at the current scale
+	xImage = xImage + ((xScreen - xLast) / scale);
+	yImage = yImage + ((yScreen - yLast) / scale);
+
+	scale += -deltaY * MOUSEWHEEL_SCALE;
+	if (scale < MIN_SCALE) scale = MIN_SCALE;
+	else if (scale > MAX_SCALE) scale = MAX_SCALE;
+
+	// determine the location on the screen at the new scale
+	xNew = (xScreen - xImage) / scale;
+	yNew = (yScreen - yImage) / scale;
+
+	// save the current screen location
+	xLast = xScreen;
+	yLast = yScreen;
+
+	// redraw
+	$("#diagram").css('-webkit-transform', 'scale(' + scale + ')' + 'translate(' + xNew + 'px, ' + yNew + 'px' + ')')
+		.css('-webkit-transform-origin', xImage + 'px ' + yImage + 'px');
+}
+
+function onPinchStart (event) {
+	startScale = scale;
+}
+
+function onPinchEnd (event) {
 }
 
 // TODO: throttle this?
 function onPinch (event) {
 	var s = event.originalEvent.scale;
 	
-	if (s > 1) {
-		scale += s * .02;//MOUSEWHEEL_SCALE;
-		if (scale < .1) scale = .1;
-		else if (scale > 1) scale = 1;
-		$("#diagram").css("-webkit-transform", "scale(" + scale + ")");	
-	} else if (s < 1) {
-		scale -= s * .02;//MOUSEWHEEL_SCALE;
-		if (scale < .1) scale = .1;
-		else if (scale > 1) scale = 1;
-		$("#diagram").css("-webkit-transform", "scale(" + scale + ")");	
-	}
+	scale = startScale * s;
+	if (scale < MIN_SCALE) scale = MIN_SCALE;
+	else if (scale > MAX_SCALE) scale = MAX_SCALE;
+	$("#diagram").css("-webkit-transform", "scale(" + scale + ")");
+	
+	$("#diagram").css("-webkit-transform-origin", lastCenter.x + "px " + lastCenter.y + "px");
 }
 
 function onEditBubble (data) {
@@ -318,20 +398,34 @@ function editBubbleCaption (bubble) {
 	b.editable("open");
 }
 
+function removeTransformOrigin () {
+	var pt = $("#diagram").offset();
+	xNew = pt.left / scale;
+	yNew = pt.top / scale;
+
+	$("#diagram").css('left', 0);
+	$("#diagram").css('top', 0);
+	
+	xImage = 0;
+	yImage = 0;
+	xLast = pt.left;
+	yLast = pt.top;
+
+	// redraw
+	$("#diagram").css('-webkit-transform', 'scale(' + scale + ')' + 'translate(' + xNew + 'px, ' + yNew + 'px' + ')')
+		.css('-webkit-transform-origin', xImage + 'px ' + yImage + 'px');	
+}
+
 function onStartDraggingBubble (event, ui) {
+	removeTransformOrigin();
 }
 
 function onDraggingBubble (event, ui) {
-	// TODO: get scaling from transformation matrix
-	var zoomScaleX = 1.0;//mtx[0];
-	var zoomScaleY = 1.0;//mtx[3];
+	var dx = (ui.position.left - ui.originalPosition.left) / scale;
+	var dy = (ui.position.top - ui.originalPosition.top) / scale;
 
-	// scale the delta by the zoom factor
-	var dx = ui.position.left - ui.originalPosition.left;
-	var dy = ui.position.top - ui.originalPosition.top;
-
-	ui.position.left = ui.originalPosition.left + (dx / zoomScaleX);
-	ui.position.top = ui.originalPosition.top + (dy / zoomScaleY);
+	ui.position.left = ui.originalPosition.left / scale + dx;
+	ui.position.top = ui.originalPosition.top / scale + dy;
 }
 
 function updateBubbleData (id, data) {
@@ -406,11 +500,14 @@ function updateBubbleText (elem) {
 	updateBubbleData(id, data);
 }
 
+function onStartDraggingDiagram (event) {	
+	$("#diagram").css('transform', "scale(" + scale + ")");
+	$("#diagram").css('-webkit-transform-origin', "0 0");
+		
+	$("#diagram").css('left', xImage * scale);
+	$("#diagram").css('top', yImage * scale);
+}
+
 function onStopDraggingDiagram () {
-	// resize to fit viewable area
-	var p = $("#diagram_container");
-	var o = $("#diagram_outer");
-	var d = $("#diagram");
-	d.offset( { left: d.offset().left + o.offset().left, top: d.offset().top + o.offset().top } );
-	o.offset( { left: 0, top: 0 } );
+	removeTransformOrigin();
 }

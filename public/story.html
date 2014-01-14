@@ -43,7 +43,17 @@
 	<!-- from https://github.com/victorjonsson/jquery-editable -->
 	<!-- didn't work seamlessly with absolute or inline-block elements -->
 	<script type="text/javascript" src="js/jquery.editable.min.js"></script>
-	
+
+	<script type="text/javascript" src="js/TweenMax.min.js"></script>
+	<script type="text/javascript" src="js/TimelineMax.min.js"></script>
+	<script type="text/javascript" src="js/utils/Draggable.min.js"></script>
+	<script type="text/javascript" src="js/detectmobilebrowser.js"></script>
+
+<!-- this Zynga scroller didn't seem to work well
+	<script type="text/javascript" src="js/Animate.js"></script>
+	<script type="text/javascript" src="js/Scroller.js"></script>
+-->
+
 	<script type="text/javascript" src="js/story.js"></script>
 </head>
 
@@ -51,6 +61,7 @@
 	<div id="controls">
 		<button id="loginButton">Login</button>
 		<button id="addButton">Add</button>
+		<textarea id="logger"></textarea>
 	</div>
 	<div id="splitter">
 		<div id="diagram_container">
