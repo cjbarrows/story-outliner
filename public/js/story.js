@@ -291,17 +291,19 @@ function deleteBubble (id) {
 function onDiagramMouseWheel (event, delta, deltaX, deltaY) {
 	event.preventDefault();
 	
-	// find current location on screen 
-	var xScreen = event.pageX;
-	var yScreen = event.pageY;
-
-	// find current location on the image at the current scale
-	xImage = xImage + ((xScreen - xLast) / scale);
-	yImage = yImage + ((yScreen - yLast) / scale);
-
+	var oldScale = scale;
+	
 	scale += -deltaY * MOUSEWHEEL_SCALE;
 	if (scale < MIN_SCALE) scale = MIN_SCALE;
 	else if (scale > MAX_SCALE) scale = MAX_SCALE;
+
+	zoomOnPoint(event.pageX, event.pageY, oldScale);
+}
+
+function zoomOnPoint (xScreen, yScreen, oldScale) {
+	// find current location on the image at the current scale
+	xImage = xImage + ((xScreen - xLast) / oldScale);
+	yImage = yImage + ((yScreen - yLast) / oldScale);
 
 	// determine the location on the screen at the new scale
 	xNew = (xScreen - xImage) / scale;
@@ -327,12 +329,17 @@ function onPinchEnd (event) {
 function onPinch (event) {
 	var s = event.originalEvent.scale;
 	
+	var oldScale = scale;
+	
 	scale = startScale * s;
 	if (scale < MIN_SCALE) scale = MIN_SCALE;
 	else if (scale > MAX_SCALE) scale = MAX_SCALE;
-	$("#diagram").css("-webkit-transform", "scale(" + scale + ")");
 	
-	$("#diagram").css("-webkit-transform-origin", lastCenter.x + "px " + lastCenter.y + "px");
+	zoomOnPoint(event.clientX, event.clientY, oldScale);
+	
+//	$("#diagram").css("-webkit-transform", "scale(" + scale + ")");
+	
+//	$("#diagram").css("-webkit-transform-origin", lastCenter.x + "px " + lastCenter.y + "px");
 }
 
 function onEditBubble (data) {
@@ -428,6 +435,7 @@ function onDraggingBubble (event, ui) {
 	ui.position.top = ui.originalPosition.top / scale + dy;
 }
 
+// TODO: create in-memory copies of the story, for undo/rollback purposes
 function updateBubbleData (id, data) {
 	if (dataMode == "node") {
 		$.post("/story/" + id, data, onUpdateCallback);
