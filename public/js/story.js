@@ -8,6 +8,8 @@ var xLast = 0;  // last x location on the screen
 var yLast = 0;  // last y location on the screen
 var xImage = 0; // last x location on the image
 var yImage = 0; // last y location on the image
+
+var lastMoveX, lastMoveY;
     
 var MOUSEWHEEL_SCALE = .005;
 var MIN_SCALE = .1, MAX_SCALE = 4;
@@ -28,7 +30,7 @@ $(document).ready(function () {
 	
 	initializeUI();
 	
-	$("#diagram").mousewheel(onDiagramMouseWheel);
+	$("#diagram_outer").mousewheel(onDiagramMouseWheel);
 	$("#diagram_outer").on("gesturestart", onPinchStart);
 	$("#diagram_outer").on("gesturechange", onPinch);
 	$("#diagram_outer").on("gestureend", onPinchEnd);
@@ -126,7 +128,13 @@ function initializeUI () {
 	
 //	$("#splitter").splitter();
 
-	$("#diagram").draggable( { start: onStartDraggingDiagram, stop: onStopDraggingDiagram } );
+	// TODO: instead of having the diagram draggable, check the #diagram_outer for
+	//  mouse movement and move the #diagram based on that, with the background color
+	//  in #diagram_outer (and same for touches)
+//	$("#diagram").draggable( { start: onStartDraggingDiagram, drag: onDraggingDiagram, stop: onStopDraggingDiagram } );
+
+	$("#diagram_outer").mousedown(onMouseDownDiagram);
+	$("#diagram_outer").mousemove(onMouseMoveDiagram);
 
 	$("button").button();
 	
@@ -514,4 +522,30 @@ function onStartDraggingDiagram (event) {
 
 function onStopDraggingDiagram () {
 	removeTransformOrigin();
+}
+
+function onDraggingDiagram () {
+	resizeDiagramToViewport();
+}
+
+function resizeDiagramToViewport () {
+	var rect = $("#diagram").get(0).getBoundingClientRect();
+	console.log(rect);
+}
+
+function onMouseDownDiagram (event) {
+	lastMoveX = lastMoveY = undefined;
+}
+
+function onMouseMoveDiagram (event) {
+	if (event.which) {
+		if (lastMoveX != undefined) {
+			var deltaX = event.pageX - lastMoveX;
+			var deltaY = event.pageY - lastMoveY;
+			var off = $("#diagram").offset();
+			$("#diagram").offset( { left: off.left + deltaX, top: off.top + deltaY } );
+		}
+		lastMoveX = event.pageX;
+		lastMoveY = event.pageY;
+	}
 }
