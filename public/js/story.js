@@ -335,13 +335,7 @@ function onPinch (event) {
 	if (scale < MIN_SCALE) scale = MIN_SCALE;
 	else if (scale > MAX_SCALE) scale = MAX_SCALE;
 	
-	zoomOnPoint(event.clientX, event.clientY, oldScale);
-	
-	windowlog(event.clientX + " " + event.clientY + " " + oldScale);
-	
-//	$("#diagram").css("-webkit-transform", "scale(" + scale + ")");
-	
-//	$("#diagram").css("-webkit-transform-origin", lastCenter.x + "px " + lastCenter.y + "px");
+	zoomOnPoint(lastCenter.x, lastCenter.y, oldScale);
 }
 
 function onEditBubble (data) {
