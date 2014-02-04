@@ -2,12 +2,8 @@ var scale = 1.0;
 var startScale;
 var lastCenter;
 
-var xNew = 0;
-var yNew = 0;
 var xLast = 0;  // last x location on the screen
 var yLast = 0;  // last y location on the screen
-var xImage = 0; // last x location on the image
-var yImage = 0; // last y location on the image
 
 var translateX = 0, translateY = 0, originX = 0, originY = 0;
 var localX = 0, localY = 0;
@@ -18,8 +14,8 @@ var panning = false;
 var MOUSEWHEEL_SCALE = .005;
 var MIN_SCALE = .1, MAX_SCALE = 4;
 
-// "dropbox" or "node"
-var dataMode = "dropbox";
+// "dropbox" or "node" or "local"
+var dataMode = "local";
 
 var APP_KEY = "qmqi08m3143grgb";
 var client, datastoreManager, bubbleTable;
@@ -301,27 +297,6 @@ function deleteBubble (id) {
 	}
 }
 
-function zoomOnPoint (xScreen, yScreen, oldScale) {
-	// find current location on the image at the current scale
-	var dx = (xScreen - xLast) / oldScale;
-	var dy = (yScreen - yLast) / oldScale;
-	
-	xImage += dx;
-	yImage += dy;
-
-	// determine the location on the screen at the new scale
-	xNew = (xScreen - xImage) / scale;
-	yNew = (yScreen - yImage) / scale;
-
-	// save the current screen location
-	xLast = xScreen;
-	yLast = yScreen;
-
-	// redraw
-	$("#diagram").css('-webkit-transform', 'scale(' + scale + ')' + 'translate(' + xNew + 'px, ' + yNew + 'px' + ')')
-		.css('-webkit-transform-origin', xImage + 'px ' + yImage + 'px');
-}
-
 function onPinchStart (event) {
 	startScale = scale;
 }
@@ -442,6 +417,7 @@ function updateBubbleData (id, data) {
 	} else if (dataMode == "dropbox") {
 		var rec = getDropboxRecord(id);
 		rec.update(data);
+	} else if (dataMode == "local") {
 	}
 }
 
@@ -473,11 +449,11 @@ function onClickAddBubble (event) {
 		bubbles.sort(sortByID);
 	
 		next_id = Math.floor(bubbles[bubbles.length - 1].id.substr(1)) + 1;
-		
-		var newBubble = { left: 100, top: 100, id: "b" + next_id, text: "New bubble.", contents: "Contents of new bubble." };
-		var elem = createBubble(newBubble);
-		updateBubble(elem);
 	}
+		
+	var newBubble = { left: 100, top: 100, id: "b" + next_id, text: "New bubble.", contents: "Contents of new bubble." };
+	var elem = createBubble(newBubble);
+	updateBubble(elem);
 }
 
 function onUpdateCallback (data) {
@@ -530,14 +506,12 @@ function resizeDiagramToViewport () {
 }
 
 function onMouseDownDiagram (event) {
-//	lastMoveX = lastMoveY = undefined;
 	xLast = event.clientX;
 	yLast = event.clientY;
 	
-	// TODO: check to make sure we didn't click on a bubble (for dragging or resizing, etc.)
-	panning = true;
-	
-	recenterDiagram();
+	if (event.target == $("#diagram")[0]) {
+		panning = true;
+	}
 }
 
 function onMouseUpDiagram (event) {
@@ -545,15 +519,11 @@ function onMouseUpDiagram (event) {
 	
 	xLast = event.clientX;
 	yLast = event.clientY;
-		
-//	zoomOnPoint(event.clientX, event.clientY, scale);
 }
 
 function onMouseMoveDiagram (event) {
-	// TODO: panning doesn't work if there was a zoom prior
-	
 	var xx = event.clientX, yy = event.clientY;
-	
+
 	if (event.which == 1 && panning) {
 		if (xLast != undefined) {
 			var deltaX = (xx - xLast) / scale;
@@ -561,12 +531,7 @@ function onMouseMoveDiagram (event) {
 			translateX += deltaX;
 			translateY += deltaY;
 
-//			moveDiagram(deltaX, deltaY);
-						
 			refreshDiagram();
-			
-//			var off = $("#diagram").offset();
-//			$("#diagram").offset( { left: off.left + deltaX, top: off.top + deltaY } );
 		}
 		xLast = xx;
 		yLast = yy;
@@ -597,40 +562,6 @@ function onDiagramMouseWheel (event, delta, deltaX, deltaY) {
 function refreshDiagram () {
 	$("#diagram").css('-webkit-transform', 'scale(' + scale + ')' + 'translate(' + translateX + 'px, ' + translateY + 'px' + ')')
 		.css('-webkit-transform-origin', originX + 'px ' + originY + 'px');
-
-	/*	
-	var translation = getTranslation();
-	$("#diagram").css('-webkit-transform', 'scale(' + scale + ')' + 'translate(' + translation.x + 'px, ' + translation.y + 'px' + ')')
-		.css('-webkit-transform-origin', originX + 'px ' + originY + 'px');	
-	*/
-}
-
-function moveDiagram (offsetX, offsetY) {
-	var translation = getTranslation();
-	translation.x += offsetX;
-	translation.y += offsetY;
-	$("#diagram").css('-webkit-transform', 'scale(' + scale + ')' + 'translate(' + translation.x + 'px, ' + translation.y + 'px' + ')')
-		.css('-webkit-transform-origin', originX + 'px ' + originY + 'px');	
-}
-
-function recenterDiagram () {
-	translateX -= originX * scale;
-	translateY -= originY * scale;
-	originX = originY = 0;
-	refreshDiagram();
-}
-
-function recenterOn (xx, yy) {
-	var dx = (originX - xx) * scale;
-	var dy = (originY - yy) * scale;
-	
-	console.log(dx + ", " + dy);
-	
-	originX = xx;
-	originY = yy;
-	
-//	translateX -= dx;
-//	translateY += dy;
 }
 
 function showLocalMouse (client_x, client_y) {
