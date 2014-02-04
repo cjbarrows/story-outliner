@@ -9,7 +9,11 @@ var yLast = 0;  // last y location on the screen
 var xImage = 0; // last x location on the image
 var yImage = 0; // last y location on the image
 
-var lastMoveX, lastMoveY;
+var translateX = 0, translateY = 0, originX = 0, originY = 0;
+var localX = 0, localY = 0;
+
+//var lastMoveX, lastMoveY;
+var panning = false;
     
 var MOUSEWHEEL_SCALE = .005;
 var MIN_SCALE = .1, MAX_SCALE = 4;
@@ -135,6 +139,7 @@ function initializeUI () {
 
 	$("#diagram_outer").mousedown(onMouseDownDiagram);
 	$("#diagram_outer").mousemove(onMouseMoveDiagram);
+	$("#diagram_outer").mouseup(onMouseUpDiagram);
 
 	$("button").button();
 	
@@ -296,22 +301,13 @@ function deleteBubble (id) {
 	}
 }
 
-function onDiagramMouseWheel (event, delta, deltaX, deltaY) {
-	event.preventDefault();
-	
-	var oldScale = scale;
-	
-	scale += -deltaY * MOUSEWHEEL_SCALE;
-	if (scale < MIN_SCALE) scale = MIN_SCALE;
-	else if (scale > MAX_SCALE) scale = MAX_SCALE;
-
-	zoomOnPoint(event.pageX, event.pageY, oldScale);
-}
-
 function zoomOnPoint (xScreen, yScreen, oldScale) {
 	// find current location on the image at the current scale
-	xImage = xImage + ((xScreen - xLast) / oldScale);
-	yImage = yImage + ((yScreen - yLast) / oldScale);
+	var dx = (xScreen - xLast) / oldScale;
+	var dy = (yScreen - yLast) / oldScale;
+	
+	xImage += dx;
+	yImage += dy;
 
 	// determine the location on the screen at the new scale
 	xNew = (xScreen - xImage) / scale;
@@ -453,7 +449,7 @@ function onStopDraggingBubble (event, ui) {
 	var id = event.target.id;
 	var data = { left: ui.position.left, top: ui.position.top };
 	
-	updateBubbleData(id, data);	
+	updateBubbleData(id, data);
 }
 
 function onStopResizingBubble (event, ui) {
@@ -534,18 +530,136 @@ function resizeDiagramToViewport () {
 }
 
 function onMouseDownDiagram (event) {
-	lastMoveX = lastMoveY = undefined;
+//	lastMoveX = lastMoveY = undefined;
+	xLast = event.clientX;
+	yLast = event.clientY;
+	
+	// TODO: check to make sure we didn't click on a bubble (for dragging or resizing, etc.)
+	panning = true;
+	
+	recenterDiagram();
+}
+
+function onMouseUpDiagram (event) {
+	panning = false;
+	
+	xLast = event.clientX;
+	yLast = event.clientY;
+		
+//	zoomOnPoint(event.clientX, event.clientY, scale);
 }
 
 function onMouseMoveDiagram (event) {
-	if (event.which) {
-		if (lastMoveX != undefined) {
-			var deltaX = event.pageX - lastMoveX;
-			var deltaY = event.pageY - lastMoveY;
-			var off = $("#diagram").offset();
-			$("#diagram").offset( { left: off.left + deltaX, top: off.top + deltaY } );
+	// TODO: panning doesn't work if there was a zoom prior
+	
+	var xx = event.clientX, yy = event.clientY;
+	
+	if (event.which == 1 && panning) {
+		if (xLast != undefined) {
+			var deltaX = (xx - xLast) / scale;
+			var deltaY = (yy - yLast) / scale;
+			translateX += deltaX;
+			translateY += deltaY;
+
+//			moveDiagram(deltaX, deltaY);
+						
+			refreshDiagram();
+			
+//			var off = $("#diagram").offset();
+//			$("#diagram").offset( { left: off.left + deltaX, top: off.top + deltaY } );
 		}
-		lastMoveX = event.pageX;
-		lastMoveY = event.pageY;
+		xLast = xx;
+		yLast = yy;
+	}
+	
+	showLocalMouse(event.clientX, event.clientY);
+	
+	var local = getLocal(event.clientX, event.clientY);
+	localX = local.x;
+	localY = local.y;
+}
+
+function onDiagramMouseWheel (event, delta, deltaX, deltaY) {
+	event.preventDefault();
+	
+	var oldScale = scale;
+	
+	scale += -deltaY * MOUSEWHEEL_SCALE;
+	if (scale < MIN_SCALE) scale = MIN_SCALE;
+	else if (scale > MAX_SCALE) scale = MAX_SCALE;
+
+	translateX = event.clientX / scale - localX;
+	translateY = event.clientY / scale - localY;
+	
+	refreshDiagram();
+}
+
+function refreshDiagram () {
+	$("#diagram").css('-webkit-transform', 'scale(' + scale + ')' + 'translate(' + translateX + 'px, ' + translateY + 'px' + ')')
+		.css('-webkit-transform-origin', originX + 'px ' + originY + 'px');
+
+	/*	
+	var translation = getTranslation();
+	$("#diagram").css('-webkit-transform', 'scale(' + scale + ')' + 'translate(' + translation.x + 'px, ' + translation.y + 'px' + ')')
+		.css('-webkit-transform-origin', originX + 'px ' + originY + 'px');	
+	*/
+}
+
+function moveDiagram (offsetX, offsetY) {
+	var translation = getTranslation();
+	translation.x += offsetX;
+	translation.y += offsetY;
+	$("#diagram").css('-webkit-transform', 'scale(' + scale + ')' + 'translate(' + translation.x + 'px, ' + translation.y + 'px' + ')')
+		.css('-webkit-transform-origin', originX + 'px ' + originY + 'px');	
+}
+
+function recenterDiagram () {
+	translateX -= originX * scale;
+	translateY -= originY * scale;
+	originX = originY = 0;
+	refreshDiagram();
+}
+
+function recenterOn (xx, yy) {
+	var dx = (originX - xx) * scale;
+	var dy = (originY - yy) * scale;
+	
+	console.log(dx + ", " + dy);
+	
+	originX = xx;
+	originY = yy;
+	
+//	translateX -= dx;
+//	translateY += dy;
+}
+
+function showLocalMouse (client_x, client_y) {
+	var local = getLocal(client_x, client_y);
+	
+	$("#client_x").text(Math.round(client_x));
+	$("#client_y").text(Math.round(client_y));
+	
+	$("#local_x").text(Math.round(local.x));
+	$("#local_y").text(Math.round(local.y));
+}
+
+function getLocal (client_x, client_y) {
+	var localX = client_x, localY = client_y;
+	
+	var translate = getTranslation();
+	
+	localX -= translate.x;
+	localY -= translate.y;
+	
+	return { x: localX / scale, y: localY / scale };
+}
+
+function getTranslation () {
+	var matrix = $("#diagram").css("transform");
+	var values = matrix.match(/-?[0-9\.]+/g);
+	if (values == null) {
+		return { x: 0, y: 0 };
+	} else {
+		return { x: parseFloat(values[4]), y: parseFloat(values[5]) };
 	}
 }
